@@ -19,6 +19,7 @@ I construct my Neural Network as an 4 layers MLP, including:
 * 1 output layer with 1 neuron
 #### Backpropagation
 To implement backpropagation, I follwed the chain rule and use SGD to reduce the loss between the ground truth and predictions.
+
 ![Alt text](IMG_546684080A89-1.jpeg)
 
 ## III. Result of our testing
@@ -203,7 +204,9 @@ epoch: 100000 loss: 0.8893137513616681
  [0.91890971]]
 accuracy:  1.0
 ```
+
 ![Alt text](image-4.png)
+
 * XOR data
 ```
 ########## Testing ##########
@@ -234,9 +237,12 @@ accuracy:  1.0
 ![Alt text](image-5.png)
 #### Leraning curve
 * linear data
-  ![Alt text](image-2.png)
+
+![Alt text](image-2.png)
+
 * XOR data
-  ![Alt text](image-3.png)
+
+![Alt text](image-3.png)
   
 #### others
 ## IV. Discussion
@@ -245,25 +251,33 @@ accuracy:  1.0
 *The accuracy after training by this two MLP will be both 1.0*
 
 * linear data
+
 ![Alt text](image-8.png)
 ![Alt text](image-7.png)
 * XOR data
+
 ![Alt text](image-9.png)
 ![Alt text](image-10.png)
 #### different numbers of hidden units
 *The accuracy after training by this two MLP will be both 1.0*
 * linear data
+
 ![Alt text](image-11.png)
 
 * XOR data
+
 ![Alt text](image-12.png)
 
 #### without activation functions
 *The accuracy after training by this two MLP will be both 1.0*
 
 * linear data
+
 ![Alt text](image-15.png)
+
 * XOR data
+
+
 ![Alt text](image-14.png)
 
 
@@ -281,9 +295,11 @@ V(t) = beta * V(t-1) - learning_rate * gradient
 Weight = Weight + V(t)
 ```
 * linear data
+
 ![Alt text](image-16.png)
 
 * XOR data
+
 ![Alt text](image-17.png)
 
 #### ReLU
@@ -296,9 +312,11 @@ def ReLU_derivatives(self, x):
     return 1 * (x > 0)
 ```
 * linear data
+
 ![Alt text](image-18.png)
 
 * XOR data
+
 ![Alt text](image-19.png)
 
 #### 
