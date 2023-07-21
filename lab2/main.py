@@ -1,5 +1,6 @@
 from dataloader import read_bci_data
 from EEGNet import EEGNet
+from DeepConvNet import DeppConvNet
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -55,8 +56,14 @@ if __name__ == "__main__":
     test_loader = DataLoader(TensorDataset(train_data, train_label), batch_size=64)
     lr = 1e-2
     epochs = 300
-    eegnet = EEGNet()
+    # eegnet = EEGNet()
+    # print("########## Train ##########")
+    # train(eegnet, train_loader, lr, epochs)
+    # print("########## Test ##########")
+    # test(eegnet, test_loader)
+    
+    deepConvNet = DeppConvNet()
     print("########## Train ##########")
-    train(eegnet, train_loader, lr, epochs)
+    train(deepConvNet, train_loader, lr, epochs)
     print("########## Test ##########")
-    test(eegnet, test_loader)
+    test(deepConvNet, test_loader)
