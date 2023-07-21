@@ -30,6 +30,20 @@ def train(model, loader, learning_rate, epochs):
         if epoch % 20 == 0:
             print("loss: ", loss.item())
             print("accuracy: ", correct_pred / 1080)
+            
+def test(model, loader):
+    with torch.no_grad():
+        model.eval()
+        correct_pred = 0
+        for x_batch, y_batch in loader:
+            y_pred = model(x_batch)
+            y_pred = y_pred.squeeze()
+            y_pred_binary = (y_pred >= 0.5).int()
+            correct_pred += (y_pred_binary == y_batch).sum().item()
+        
+        print("accuracy: ", correct_pred / 1080)
+            
+    
 
 if __name__ == "__main__":
     train_data, train_label, test_data, test_label = read_bci_data()
@@ -37,9 +51,12 @@ if __name__ == "__main__":
     train_label = torch.tensor(train_label).to(device)
     test_data = torch.tensor(test_data).to(device)
     test_label = torch.tensor(test_label).to(device) 
-    loader = DataLoader(TensorDataset(train_data, train_label), batch_size=64)
-    
+    train_loader = DataLoader(TensorDataset(train_data, train_label), batch_size=64)
+    test_loader = DataLoader(TensorDataset(train_data, train_label), batch_size=64)
     lr = 1e-2
     epochs = 300
     eegnet = EEGNet()
-    train(eegnet, loader, lr, epochs)
+    print("########## Train ##########")
+    train(eegnet, train_loader, lr, epochs)
+    print("########## Test ##########")
+    test(eegnet, test_loader)
