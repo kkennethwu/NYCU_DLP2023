@@ -12,8 +12,8 @@ class EEGNet(torch.nn.Module):
             torch.nn.BatchNorm2d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
         ).double()
         self.depthwiseConv = torch.nn.Sequential(
-            torch.nn.Conv2d(16, 32, kernel_size=(2, 1), stride=(1, 1), groups=16, bias=False),
-            torch.nn.BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+            torch.nn.Conv2d(16, 32, kernel_size=(2, 1), stride=(1, 1), groups=16, bias=False), #每個channel分開坐做convolution: dpethwiseConv
+            torch.nn.BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True), #solve gradient vanished/ accelerating model converge
             ActivationLayer(activation=activation),
             # torch.nn.ELU(alpha=1.0),
             torch.nn.AvgPool2d(kernel_size=(1, 4), stride=(1, 4), padding=0),
