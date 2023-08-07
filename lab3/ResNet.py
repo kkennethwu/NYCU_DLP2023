@@ -151,4 +151,40 @@ class ResNet50(torch.nn.Module):
         
         return x
 
+class ResNet152(torch.nn.Module):
+    def __init__(self, Bottleneck):
+        super(ResNet152, self).__init__()
+        self.conv1 = torch.nn.Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2,), padding=(3, 3), bias=False)
+        self.bn1 = torch.nn.BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        self.relu = torch.nn.ReLU(inplace=True)        
+        self.maxpool = torch.nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=1, dilation=1, ceil_mode=False)
+        self.layer1 = self.make_layer(Bottleneck, 64, 256, 64, 3, stride=1) 
+        self.layer2 = self.make_layer(Bottleneck, 256, 512, 128, 8, stride=2)
+        self.layer3 = self.make_layer(Bottleneck, 512, 1024, 256, 36, stride=2)
+        self.layer4 = self.make_layer(Bottleneck, 1024, 2048, 512, 3, stride=2)
+        self.avgpool = torch.nn.AdaptiveAvgPool2d(output_size=(1, 1))
+        self.fc = torch.nn.Linear(in_features=2048, out_features=2, bias=True)
         
+        
+    def make_layer(self, block, in_channels, out_channel, start_channel, num_blocks, stride):
+        layers = []
+        layers.append(block(in_channels, out_channel, start_channel, stride=stride))
+        for i in range(num_blocks - 1):
+            layers.append(block(out_channel, out_channel, start_channel, stride=1))
+        return torch.nn.Sequential(*layers)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.avgpool(x)
+        x = torch.flatten(x, start_dim=1)
+        x = self.fc(x)
+        # x = torch.nn.functional.softmax(x, dim=1)
+        
+        return x      

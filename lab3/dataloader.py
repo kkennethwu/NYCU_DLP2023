@@ -5,7 +5,7 @@ import torchvision.transforms as transforms
 from PIL import Image
 import random
 
-def getData(mode):
+def getData(mode, ResnetModel=None):
     if mode == 'train':
         df = pd.read_csv('train.csv')
         path = df['Path'].tolist()
@@ -19,12 +19,13 @@ def getData(mode):
         return path, label
     
     else:
-        df = pd.read_csv('resnet_18_test.csv')
+        csv_path = 'resnet_' + ResnetModel + '_test.csv'
+        df = pd.read_csv(csv_path)
         path = df['Path'].tolist()
         return path
 
 class LeukemiaLoader(data.Dataset):
-    def __init__(self, root, mode):
+    def __init__(self, root, mode, ResnetModel=None):
         """
         Args:
             mode : Indicate procedure status(training or testing)
@@ -37,7 +38,7 @@ class LeukemiaLoader(data.Dataset):
         if(self.mode == "train" or self.mode =="valid"):
             self.img_name, self.label = getData(mode)
         else:
-            self.img_name = getData(mode)
+            self.img_name = getData(mode, ResnetModel)
         
         print("> Found %d images..." % (len(self.img_name)))  
 
@@ -72,27 +73,33 @@ class LeukemiaLoader(data.Dataset):
         
         if(self.mode == "train"):
             transform = transforms.Compose([
-                # transforms.CenterCrop(400),
-                transforms.Resize((224, 224)),  # Resize the image to (256, 256) if needed
+                transforms.Resize((256, 256)),  # Resize the image to (256, 256) if needed
                 # transforms.RandomRotation(angle),
-                transforms.RandomHorizontalFlip(p=0.5),
+                transforms.CenterCrop((224, 224)),
+                transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(), # Convert the image to a PyTorch tensor
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
             ])
             img = transform(img)
             label = self.label[index]
             return img, label            
         elif self.mode == "valid":
             transform = transforms.Compose([
-                transforms.Resize((224, 224)),  # Resize the image to (256, 256) if needed
+                transforms.Resize((256, 256)),  # Resize the image to (256, 256) if needed
+                transforms.CenterCrop((224, 224)),
                 transforms.ToTensor(), # Convert the image to a PyTorch tensor
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
             ])
             img = transform(img)
             label = self.label[index]
             return img, label
         else:
             transform = transforms.Compose([
-                transforms.Resize((244, 224)),  # Resize the image to (256, 256) if needed
+                # transforms.Resize((244, 224)),  # Resize the image to (256, 256) if needed
+                transforms.Resize((256, 256)),  # Resize the image to (256, 256) if needed
+                transforms.CenterCrop((224, 224)),
                 transforms.ToTensor(), # Convert the image to a PyTorch tensor
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
             ])
             img = transform(img)
             return img
