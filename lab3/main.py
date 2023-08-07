@@ -6,26 +6,32 @@ from torch.utils.data import DataLoader, TensorDataset
 import torchvision.transforms as transforms
 
 
-def evaluate(model, loader):
+def evaluate(model, evalDataset):
     print("evaluate() not defined")
+    loader = DataLoader(evalDataset, batch_size=batch_size)
     with torch.no_grad():
         model.eval()
         correct_pred = 0
         for x_batch, y_batch in loader:
+            x_batch = x_batch.to(device)
+            y_batch = y_batch.to(device)
+            
             y_pred = model(x_batch)
             y_pred_binary = torch.where(y_pred[:, 0] > y_pred[:, 1], 0, 1)
             correct_pred += (y_pred_binary == y_batch).sum().item()
             loss = torch.nn.functional.cross_entropy(y_pred, y_batch)
             # scheduler.step(loss)
-        return loss, correct_pred / 1080
+        return loss, correct_pred / evalDataset.__len__()
         # print("accuracy: ", correct_pred / 1080)
 
 def test():
     print("test() not defined")
     
 
-def train(model, trainLoader, evalLoader, learning_rate, epochs):
-    # print("train() not defined")
+def train(model, trainDataset, evalDataset, learning_rate, epochs):
+    print("train() not defined")
+    trainLoader = DataLoader(trainDataset, batch_size=batch_size)
+    
     model = model.to(device=device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999))
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=200, verbose=True, eps=1e-4)
@@ -51,20 +57,20 @@ def train(model, trainLoader, evalLoader, learning_rate, epochs):
             
             y_pred_binary = torch.where(y_pred[:, 0] > y_pred[:, 1], 0, 1)
             correct_pred += (y_pred_binary == y_batch).sum().item()
-        train_acc = correct_pred / 1080
+        train_acc = correct_pred / trainDataset.__len__()
         train_acc_list.append(train_acc)
         
         epoch_list.append(epoch)
-        eval_loss, eval_acc = evaluate(model, evalLoader)  
+        eval_loss, eval_acc = evaluate(model, evalDataset)  
         eval_acc_list.append(eval_acc)
         
         model.train()
         scheduler.step(eval_loss)
          
-        if epoch % 20 == 0:
-            print(f"##### epoch: {epoch} | {epochs} #####")
-            print(f"train_loss: {loss.item()}, train_accuracy: {correct_pred / 1080}")
-            print("eval accuracy: ", eval_acc)    
+        # if epoch % 20 == 0:
+        print(f"##### epoch: {epoch} | {epochs} #####")
+        print(f"train_loss: {loss.item()}, train_accuracy: {correct_pred / trainDataset.__len__()}")
+        print("eval accuracy: ", eval_acc)    
     
     # plt.plot(epoch_list, train_acc_list, label=f"{activation}_train")    
     # plt.plot(epoch_list, test_acc_list, label=f"{activation}_test")
@@ -80,20 +86,21 @@ def save_result(csv_path, predict_result):
 if __name__ == "__main__":
     print("Good Luck :)")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    batch_size = 32
+    batch_size = 64
     lr = 0.01
-    epochs = 1000
+    epochs = 40
     
     
     trainDataset = LeukemiaLoader("", "train")
-    trainLoader = DataLoader(trainDataset, batch_size=batch_size)
+    
+    
     # trainLoader = trainLoader.to(device)
     valDataset = LeukemiaLoader("", "valid")
-    valLoader = DataLoader(valDataset, batch_size=batch_size)
+    
     # valLoader = valLoader.to(device)
     
     resNet18 = ResNet18(BasicBlock)
-    train(resNet18, trainLoader, valLoader, lr, epochs)
+    train(resNet18, trainDataset, valDataset, lr, epochs)
 
     
     

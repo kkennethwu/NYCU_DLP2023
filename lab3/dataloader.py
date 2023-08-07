@@ -3,6 +3,7 @@ from PIL import Image
 from torch.utils import data
 import torchvision.transforms as transforms
 from PIL import Image
+import random
 
 
 def getData(mode):
@@ -65,9 +66,11 @@ class LeukemiaLoader(data.Dataset):
         img = Image.open(img_path)
         label = self.label[index]
         
+        angle = random.uniform(0, 180)
         transform = transforms.Compose([
-            transforms.Resize((256, 256)),  # Resize the image to (256, 256) if needed
-            transforms.ToTensor(),          # Convert the image to a PyTorch tensor
+            transforms.Resize((224, 224)),  # Resize the image to (256, 256) if needed
+            transforms.RandomRotation(angle),
+            transforms.ToTensor(), # Convert the image to a PyTorch tensor
         ])
         img = transform(img)
         
