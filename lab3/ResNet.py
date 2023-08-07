@@ -34,6 +34,7 @@ class ResNet18(torch.nn.Module):
         self.conv1 = torch.nn.Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2,), padding=(3, 3), bias=False)
         self.bn1 = torch.nn.BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
         self.relu = torch.nn.ReLU(inplace=True)        
+        self.maxpool = torch.nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=1)
         self.layer1 = torch.nn.Sequential(
             BasicBlock(64, 64),
             BasicBlock(64, 64)
@@ -64,6 +65,7 @@ class ResNet18(torch.nn.Module):
         x = self.avgpool(x)
         x = torch.flatten(x, start_dim=1)
         x = self.fc(x)
+        x = torch.nn.functional.softmax(x, dim=1)
         
         return x
         

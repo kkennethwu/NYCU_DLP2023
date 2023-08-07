@@ -5,7 +5,6 @@ import torchvision.transforms as transforms
 from PIL import Image
 import random
 
-
 def getData(mode):
     if mode == 'train':
         df = pd.read_csv('train.csv')
@@ -20,7 +19,7 @@ def getData(mode):
         return path, label
     
     else:
-        df = pd.read_csv('Path to resnet_18/50/152_test.csv')
+        df = pd.read_csv('resnet_18_test.csv')
         path = df['Path'].tolist()
         return path
 
@@ -34,8 +33,12 @@ class LeukemiaLoader(data.Dataset):
             self.label (int or float list): Numerical list that store all ground truth label values.
         """
         self.root = root
-        self.img_name, self.label = getData(mode)
         self.mode = mode
+        if(self.mode == "train" or self.mode =="valid"):
+            self.img_name, self.label = getData(mode)
+        else:
+            self.img_name = getData(mode)
+        
         print("> Found %d images..." % (len(self.img_name)))  
 
     def __len__(self):
@@ -64,14 +67,30 @@ class LeukemiaLoader(data.Dataset):
         """
         img_path = self.root + self.img_name[index]
         img = Image.open(img_path)
-        label = self.label[index]
         
         angle = random.uniform(0, 180)
-        transform = transforms.Compose([
-            transforms.Resize((224, 224)),  # Resize the image to (256, 256) if needed
-            transforms.RandomRotation(angle),
-            transforms.ToTensor(), # Convert the image to a PyTorch tensor
-        ])
-        img = transform(img)
         
-        return img, label
+        if(self.mode == "train"):
+            transform = transforms.Compose([
+                transforms.Resize((224, 224)),  # Resize the image to (256, 256) if needed
+                transforms.RandomRotation(angle),
+                transforms.ToTensor(), # Convert the image to a PyTorch tensor
+            ])
+            img = transform(img)
+            label = self.label[index]
+            return img, label            
+        elif self.mode == "valid":
+            transform = transforms.Compose([
+                transforms.Resize((224, 224)),  # Resize the image to (256, 256) if needed
+                transforms.ToTensor(), # Convert the image to a PyTorch tensor
+            ])
+            img = transform(img)
+            label = self.label[index]
+            return img, label
+        else:
+            transform = transforms.Compose([
+                transforms.Resize((244, 224)),  # Resize the image to (256, 256) if needed
+                transforms.ToTensor(), # Convert the image to a PyTorch tensor
+            ])
+            img = transform(img)
+            return img

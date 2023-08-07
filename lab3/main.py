@@ -4,8 +4,9 @@ from dataloader import LeukemiaLoader
 import torch
 from torch.utils.data import DataLoader
 import opt
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def evaluate(model, evalDataset):
+def evaluate(model, evalDataset, batch_size):
     print("evaluate() not defined")
     loader = DataLoader(evalDataset, batch_size=batch_size)
     with torch.no_grad():
@@ -16,6 +17,8 @@ def evaluate(model, evalDataset):
             y_batch = y_batch.to(device)
             
             y_pred = model(x_batch)
+            # y_pred = torch.nn.functional.softmax(y_pred, dim=1)
+            # print(y_pred.shape)
             y_pred_binary = torch.where(y_pred[:, 0] > y_pred[:, 1], 0, 1)
             correct_pred += (y_pred_binary == y_batch).sum().item()
             loss = torch.nn.functional.cross_entropy(y_pred, y_batch)
@@ -23,11 +26,26 @@ def evaluate(model, evalDataset):
         return loss, correct_pred / evalDataset.__len__()
         # print("accuracy: ", correct_pred / 1080)
 
-def test():
+def test(model, testDataset, batch_size):
+    all_predictions = []
     print("test() not defined")
+    loader = DataLoader(testDataset, batch_size=batch_size)
+    with torch.no_grad():
+        model.eval()
+        for x_batch in loader:
+            # print(x_batch.shape)
+            x_batch = x_batch.to(device)
+            
+            y_pred = model(x_batch)
+            y_pred_binary = torch.where(y_pred[:, 0] > y_pred[:, 1], 0, 1)
+            # correct_pred += (y_pred_binary == y_batch).sum().item()
+            # loss = torch.nn.functional.cross_entropy(y_pred, y_batch)
+            # scheduler.step(loss)
+            all_predictions.extend(y_pred_binary.cpu().tolist())
+        return all_predictions
     
 
-def train(model, trainDataset, evalDataset, learning_rate, epochs):
+def train(model, trainDataset, evalDataset, learning_rate, epochs, batch_szie):
     print("train() not defined")
     trainLoader = DataLoader(trainDataset, batch_size=batch_size)
     
@@ -60,7 +78,7 @@ def train(model, trainDataset, evalDataset, learning_rate, epochs):
         train_acc_list.append(train_acc)
         
         epoch_list.append(epoch)
-        eval_loss, eval_acc = evaluate(model, evalDataset)  
+        eval_loss, eval_acc = evaluate(model, evalDataset, batch_size)  
         eval_acc_list.append(eval_acc)
         
         model.train()
@@ -79,31 +97,42 @@ def save_result(csv_path, predict_result):
     new_df = pd.DataFrame()
     new_df['ID'] = df['Path']
     new_df["label"] = predict_result
-    new_df.to_csv("./your_student_id_resnet18.csv", index=False)
+    new_df.to_csv("./312553047_resnet18.csv", index=False)
 
 
 if __name__ == "__main__":
     print("Good Luck :)")
     parser = opt.config_parser()
     args = parser.parse_args()
-    mode = args.mode
     
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    batch_size = 32
-    lr = 0.01
-    epochs = 40
+    mode = args.mode
+    batch_size = args.batch_size
+    lr = args.learning_rate
+    epochs = args.epochs
+    test_csv_path = f"resnet_{args.ResnetModel}_test.csv"
     
     
     trainDataset = LeukemiaLoader("", "train")
     # trainLoader = trainLoader.to(device)
     valDataset = LeukemiaLoader("", "valid")
     # valLoader = valLoader.to(device)
+    testDataset = LeukemiaLoader("", "test")
     
     if args.ResnetModel == "18":
         model = ResNet18(BasicBlock)
+        model = model.to(device=device)
     
     if args.mode == "train":    
-        train(model, trainDataset, valDataset, lr, epochs)
+        train(model, trainDataset, valDataset, lr, epochs, batch_size)
+        predictions = test(model, testDataset, batch_size)
+        print(predictions)
+        save_result(test_csv_path, predictions)
+        
+    if args.mode == "test":
+        predictions = test(model, testDataset, batch_size)
+        print(predictions)
+        save_result(test_csv_path, predictions)
+
 
     
     
