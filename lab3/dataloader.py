@@ -72,8 +72,10 @@ class LeukemiaLoader(data.Dataset):
         
         if(self.mode == "train"):
             transform = transforms.Compose([
+                # transforms.CenterCrop(400),
                 transforms.Resize((224, 224)),  # Resize the image to (256, 256) if needed
-                transforms.RandomRotation(angle),
+                # transforms.RandomRotation(angle),
+                transforms.RandomHorizontalFlip(p=0.5),
                 transforms.ToTensor(), # Convert the image to a PyTorch tensor
             ])
             img = transform(img)

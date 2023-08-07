@@ -1,5 +1,5 @@
 import pandas as pd
-from ResNet import BasicBlock, ResNet18
+from ResNet import BasicBlock, ResNet18, Bottleneck, ResNet50
 from dataloader import LeukemiaLoader
 import torch
 from torch.utils.data import DataLoader
@@ -50,7 +50,8 @@ def train(model, trainDataset, evalDataset, learning_rate, epochs, batch_szie):
     trainLoader = DataLoader(trainDataset, batch_size=batch_size)
     
     model = model.to(device=device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999))
+    # optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999))
+    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=5e-4)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=200, verbose=True, eps=1e-4)
     # lossFn = torch.nn.CrossEntropyLoss()
     
@@ -121,14 +122,20 @@ if __name__ == "__main__":
     if args.ResnetModel == "18":
         model = ResNet18(BasicBlock)
         model = model.to(device=device)
+        # print(model)
+    elif args.ResnetModel == "50":
+        model = ResNet50(Bottleneck)
+        model = model.to(device=device)
     
     if args.mode == "train":    
         train(model, trainDataset, valDataset, lr, epochs, batch_size)
+        torch.save(model.state_dict(), f"./weights/1")
         predictions = test(model, testDataset, batch_size)
         print(predictions)
         save_result(test_csv_path, predictions)
         
     if args.mode == "test":
+        model.load_state_dict(torch.load('./weights/1'))
         predictions = test(model, testDataset, batch_size)
         print(predictions)
         save_result(test_csv_path, predictions)
