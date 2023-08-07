@@ -2,9 +2,8 @@ import pandas as pd
 from ResNet import BasicBlock, ResNet18
 from dataloader import LeukemiaLoader
 import torch
-from torch.utils.data import DataLoader, TensorDataset
-import torchvision.transforms as transforms
-
+from torch.utils.data import DataLoader
+import opt
 
 def evaluate(model, evalDataset):
     print("evaluate() not defined")
@@ -85,22 +84,26 @@ def save_result(csv_path, predict_result):
 
 if __name__ == "__main__":
     print("Good Luck :)")
+    parser = opt.config_parser()
+    args = parser.parse_args()
+    mode = args.mode
+    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    batch_size = 64
+    batch_size = 32
     lr = 0.01
     epochs = 40
     
     
     trainDataset = LeukemiaLoader("", "train")
-    
-    
     # trainLoader = trainLoader.to(device)
     valDataset = LeukemiaLoader("", "valid")
-    
     # valLoader = valLoader.to(device)
     
-    resNet18 = ResNet18(BasicBlock)
-    train(resNet18, trainDataset, valDataset, lr, epochs)
+    if args.ResnetModel == "18":
+        model = ResNet18(BasicBlock)
+    
+    if args.mode == "train":    
+        train(model, trainDataset, valDataset, lr, epochs)
 
     
     
