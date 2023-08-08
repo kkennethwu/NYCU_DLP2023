@@ -177,15 +177,15 @@ if __name__ == "__main__":
         if args.ResnetModel == "18":
             model = ResNet18(BasicBlock)
             model = model.to(device=device)
-            print(model)
+            # print(model)
         elif args.ResnetModel == "50":
             model = ResNet50(Bottleneck)
             model = model.to(device=device)
-            print(model)
+            # print(model)
         elif args.ResnetModel == "152":
             model = ResNet152(Bottleneck)
             model = model.to(device=device)
-            print(model)
+            # print(model)
     
         if args.mode == "train":    
             train(model, trainDataset, valDataset, lr, epochs, batch_size, args.ResnetModel)
