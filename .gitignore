@@ -1,3 +1,4 @@
+.DS_Store
 lab2/*.npz
 lab3/new_dataset
 lab3/*.zip
