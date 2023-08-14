@@ -52,8 +52,8 @@ class kl_annealing():
         self.current_epoch += 1
         if self.kl_anneal_type == "Cyclical":
             self.frange_cycle_linear(self.current_epoch, self.beta, stop=1.0, n_cycle=self.kl_anneal_cycle, ratio=self.kl_anneal_ratio)
-        # elif self.kl_anneal_type == "Monotonic":
-        #     self.frange_cycle_linear()
+        elif self.kl_anneal_type == "Monotonic":
+            self.frange_monotonic_linear(self.current_epoch, self.beta, stop=1.0, n_cycle=self.kl_anneal_cycle, ratio=self.kl_anneal_ratio)
         # else 
         # raise NotImplementedError
     
@@ -200,6 +200,8 @@ class VAE_Model(nn.Module):
         predicted_next_frame = img[:, 0]
         predicted_img_list = [] # Could add the first frame
         psnr_sum = 0
+        index_list = []
+        psnr_list = []
         for i in range(self.val_vi_len - 1):
             current_pose, next_pose = label[:, i], label[:, i+1]
             current_frame, next_frame = predicted_next_frame, img[:, i+1]
@@ -214,13 +216,19 @@ class VAE_Model(nn.Module):
             predicted_next_frame = self.Generator(decoded_features)
             mse_loss += self.mse_criterion(predicted_next_frame, next_frame)
             ##### PSNR #####
-            psnr_sum += Generate_PSNR(predicted_next_frame, next_frame) 
+            psnr_per_frame = Generate_PSNR(predicted_next_frame, next_frame).item()
+            psnr_sum += psnr_per_frame
+            if self.args.test:
+                index_list.append(i)
+                psnr_list.append(psnr_per_frame) 
             ##### make gif #####
             if (self.current_epoch == self.args.num_epoch) or self.args.test:
                 predicted_img_list.append(predicted_next_frame[0])
         ##### AVG PSNR #####
         psnr_avg = psnr_sum / self.val_vi_len
-        print(psnr_avg)
+        print("\nAVG PSNR: ", psnr_avg)
+        if self.args.test:
+            self.plot_psnr(index_list, psnr_list, round(psnr_avg, 3))
         ##### make gif #####
         if (self.current_epoch == self.args.num_epoch) or self.args.test:
             self.make_gif(predicted_img_list, "checkpoints/val.gif")        
@@ -228,6 +236,15 @@ class VAE_Model(nn.Module):
         return mse_loss
         
         # raise NotImplementedError
+    
+    def plot_psnr(self, index_list, psnr_list, psnr_avg):
+        plt.plot(index_list, psnr_list, label=f"AVG_PSNR: {psnr_avg}")
+        plt.xlabel("Frame index")
+        plt.ylabel("PSNR")
+        plt.title("Per frame Quality (PSNR)")
+        plt.legend()
+        plt.savefig("graph/per_frame_quality")
+        
                 
     def make_gif(self, images_list, img_name):
         new_list = []
