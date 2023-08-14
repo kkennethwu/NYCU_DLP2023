@@ -36,20 +36,50 @@ def kl_criterion(mu, logvar, batch_size):
 class kl_annealing():
     def __init__(self, args, current_epoch=0):
         # TODO
-        raise NotImplementedError
+        self.kl_anneal_type = args.kl_anneal_type
+        self.kl_anneal_cycle = args.kl_anneal_cycle
+        self.kl_anneal_ratio = args.kl_anneal_ratio
+        self.current_epoch = current_epoch
+        if (self.kl_anneal_type == "Cyclical") or (self.kl_anneal_type == "Monotonic"):
+            self.beta = 0
+        else: # no kl_annealing
+            self.beta = 1
+        # raise NotImplementedError
+
         
     def update(self):
         # TODO
-        raise NotImplementedError
+        self.current_epoch += 1
+        if self.kl_anneal_type == "Cyclical":
+            self.frange_cycle_linear(self.current_epoch, self.beta, stop=1.0, n_cycle=self.kl_anneal_cycle, ratio=self.kl_anneal_ratio)
+        # elif self.kl_anneal_type == "Monotonic":
+        #     self.frange_cycle_linear()
+        # else 
+        # raise NotImplementedError
     
     def get_beta(self):
         # TODO
-        raise NotImplementedError
+        return self.beta
+        # raise NotImplementedError
 
     def frange_cycle_linear(self, n_iter, start=0.0, stop=1.0,  n_cycle=1, ratio=1):
         # TODO
-        raise NotImplementedError
-        
+        tmp = 0
+        tmp = ((n_iter % n_cycle) / n_cycle) * ratio
+        if(tmp <= stop):
+            self.beta = tmp
+        else:
+            self.beta = stop        
+        print("\nbeta after update: ", self.beta)
+        # raise NotImplementedError
+    
+    def frange_monotonic_linear(self, n_iter, start=0.0, stop=1.0, n_cycle=1, ratio=1):
+        tmp = 0
+        tmp = (n_iter / n_cycle) * ratio
+        if(tmp <= stop):
+            self.beta = tmp
+        else:
+            self.beta = stop
 
 class VAE_Model(nn.Module):
     def __init__(self, args):
@@ -95,7 +125,6 @@ class VAE_Model(nn.Module):
                 img = img.to(self.args.device)
                 label = label.to(self.args.device)
                 loss = self.training_one_step(img, label, adapt_TeacherForcing)
-                
                 beta = self.kl_annealing.get_beta()
                 if adapt_TeacherForcing:
                     self.tqdm_bar('train [TeacherForcing: ON, {:.1f}], beta: {}'.format(self.tfr, beta), pbar, loss.detach().cpu(), lr=self.scheduler.get_last_lr()[0])
@@ -123,11 +152,82 @@ class VAE_Model(nn.Module):
     
     def training_one_step(self, img, label, adapt_TeacherForcing):
         # TODO
-        raise NotImplementedError
+        # img->frame, label->pose
+        self.frame_transformation.train()
+        self.label_transformation.train()
+        self.Gaussian_Predictor.train()
+        self.Decoder_Fusion.train()
+        self.Generator.train()
+        
+        mse_loss = 0
+        kl_loss = 0
+        predicted_next_frame = img[:, 0]
+        for i in range(self.train_vi_len - 1):
+            current_pose, next_pose = label[:, i], label[:, i+1]
+            current_frame, next_frame = predicted_next_frame, img[:, i+1]
+            ##### Add Teacher forcing
+            if adapt_TeacherForcing: # ?d
+                current_frame = img[:, i]  
+            ##### KL Loss #####
+            encoded_next_frame = self.frame_transformation(next_frame)
+            encoded_next_pose = self.label_transformation(next_pose)
+            z, mu, logvar = self.Gaussian_Predictor(encoded_next_frame, encoded_next_pose) # z for reparameterization trick
+            kl_loss += kl_criterion(mu, logvar, self.batch_size)
+            ##### MSE Loss #####
+            encoded_current_frame = self.frame_transformation(current_frame)
+            decoded_features = self.Decoder_Fusion(encoded_current_frame, encoded_next_pose, z) # param ?
+            predicted_next_frame = self.Generator(decoded_features)
+            mse_loss += self.mse_criterion(predicted_next_frame, next_frame)
+            # breakpoint()
+        
+        ##### kl_annealing #####
+        beta = self.kl_annealing.get_beta()
+        loss = mse_loss + beta * kl_loss
+        ##### back porpagation #####
+        loss.backward()
+        self.optimizer_step()
+        return loss
+        # raise NotImplementedError
     
     def val_one_step(self, img, label):
         # TODO
-        raise NotImplementedError
+        self.frame_transformation.eval()
+        self.label_transformation.eval()
+        self.Decoder_Fusion.eval()
+        self.Generator.eval()
+        
+        mse_loss = 0
+        predicted_next_frame = img[:, 0]
+        predicted_img_list = [] # Could add the first frame
+        psnr_sum = 0
+        for i in range(self.val_vi_len - 1):
+            current_pose, next_pose = label[:, i], label[:, i+1]
+            current_frame, next_frame = predicted_next_frame, img[:, i+1]
+            
+            encoded_current_frame = self.frame_transformation(current_frame)
+            encoded_next_pose = self.label_transformation(next_pose)
+            # print(encoded_current_frame.shape)
+            # print(encoded_next_pose.shape)
+            z = torch.randn(1, self.args.N_dim, self.args.frame_H, self.args.frame_W) # weired
+            z = z.to(self.args.device)
+            decoded_features = self.Decoder_Fusion(encoded_current_frame, encoded_next_pose, z) # param ?
+            predicted_next_frame = self.Generator(decoded_features)
+            mse_loss += self.mse_criterion(predicted_next_frame, next_frame)
+            ##### PSNR #####
+            psnr_sum += Generate_PSNR(predicted_next_frame, next_frame) 
+            ##### make gif #####
+            if (self.current_epoch == self.args.num_epoch) or self.args.test:
+                predicted_img_list.append(predicted_next_frame[0])
+        ##### AVG PSNR #####
+        psnr_avg = psnr_sum / self.val_vi_len
+        print(psnr_avg)
+        ##### make gif #####
+        if (self.current_epoch == self.args.num_epoch) or self.args.test:
+            self.make_gif(predicted_img_list, "checkpoints/val.gif")        
+        
+        return mse_loss
+        
+        # raise NotImplementedError
                 
     def make_gif(self, images_list, img_name):
         new_list = []
@@ -170,7 +270,14 @@ class VAE_Model(nn.Module):
     
     def teacher_forcing_ratio_update(self):
         # TODO
-        raise NotImplementedError
+        if self.current_epoch >= self.tfr_sde:
+            tmp_tfr = self.tfr * self.tfr_d_step
+            self.tfr = max(tmp_tfr, 0)
+        # print(self.tfr)
+        # print(self.tfr_d_step)
+        # print(self.tfr_sde)
+        
+        # raise NotImplementedError
             
     def tqdm_bar(self, mode, pbar, loss, lr):
         pbar.set_description(f"({mode}) Epoch {self.current_epoch}, lr:{lr}" , refresh=False)
@@ -257,7 +364,7 @@ if __name__ == '__main__':
     parser.add_argument('--fast_train_epoch',   type=int, default=5,        help="Number of epoch to use fast train mode")
     
     # Kl annealing stratedy arguments
-    parser.add_argument('--kl_anneal_type',     type=str, default='Cyclical',       help="")
+    parser.add_argument('--kl_anneal_type',     type=str, default='NoKL_Annealing',       help="Cyclical, Monotonic, NoKL_Annealing")
     parser.add_argument('--kl_anneal_cycle',    type=int, default=10,               help="")
     parser.add_argument('--kl_anneal_ratio',    type=float, default=1,              help="")
     

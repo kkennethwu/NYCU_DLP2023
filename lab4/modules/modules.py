@@ -77,7 +77,13 @@ class Gaussian_Predictor(nn.Sequential):
         
     def reparameterize(self, mu, logvar):
         # TODO
-        raise NotImplementedError
+        # To make the model differntiable
+        # reference: https://www.youtube.com/watch?v=9zKuYvjFFS8&t=6s&ab_channel=ArxivInsights
+        std = torch.exp(0.5 * logvar)
+        epsilon = torch.randn_like(std)
+        z = mu + std * epsilon
+        return z
+        # raise NotImplementedError
 
     def forward(self, img, label):
         feature = torch.cat([img, label], dim=1)
