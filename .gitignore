@@ -4,3 +4,10 @@ lab3/new_dataset
 lab3/*.zip
 lab3/*.csv
 lab3/weights
+lab4/*.zip
+lab4/LAB4_Dataset
+lab4/Demo_Test
+lab4/checkpoints
+lab4/__pycache
+lab4/*.gif
+
