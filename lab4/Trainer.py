@@ -1,5 +1,6 @@
 import os
 import argparse
+import configparser
 import numpy as np
 import torch
 import torch.nn as nn
@@ -41,7 +42,7 @@ class kl_annealing():
         self.kl_anneal_ratio = args.kl_anneal_ratio
         self.current_epoch = current_epoch
         if (self.kl_anneal_type == "Cyclical") or (self.kl_anneal_type == "Monotonic"):
-            self.beta = 0
+            self.beta = 0.01
         else: # no kl_annealing
             self.beta = 1
         # raise NotImplementedError
@@ -112,19 +113,26 @@ class VAE_Model(nn.Module):
         self.val_vi_len   = args.val_vi_len
         self.batch_size = args.batch_size
         
+        self.current_val_psnr = 0
         
     def forward(self, img, label):
         pass
     
     def training_stage(self):
+        train_loss_list, kl_list, mse_list, epoch_list, tfr_list, beta_list, val_psnr_list = [], [], [], [], [], [], []
         for i in range(self.args.num_epoch):
             train_loader = self.train_dataloader()
             adapt_TeacherForcing = True if random.random() < self.tfr else False
             
+            loss_sum, kl_sum, mse_sum = 0, 0, 0
+            train_loader_len = train_loader.__len__()
             for (img, label) in (pbar := tqdm(train_loader, ncols=120)):
                 img = img.to(self.args.device)
                 label = label.to(self.args.device)
-                loss = self.training_one_step(img, label, adapt_TeacherForcing)
+                loss, mse_loss, kl_loss = self.training_one_step(img, label, adapt_TeacherForcing)
+                loss_sum += loss.item()
+                mse_sum += mse_loss.item()
+                kl_sum += kl_loss.item()
                 beta = self.kl_annealing.get_beta()
                 if adapt_TeacherForcing:
                     self.tqdm_bar('train [TeacherForcing: ON, {:.1f}], beta: {}'.format(self.tfr, beta), pbar, loss.detach().cpu(), lr=self.scheduler.get_last_lr()[0])
@@ -133,14 +141,54 @@ class VAE_Model(nn.Module):
             
             if self.current_epoch % self.args.per_save == 0:
                 self.save(os.path.join(self.args.save_root, f"epoch={self.current_epoch}.ckpt"))
-                
+            ##### for loss/psnr graph #####
+            train_loss_list.append(loss_sum / train_loader_len) 
+            mse_list.append(mse_sum / train_loader_len)
+            kl_list.append(kl_sum/ train_loader_len)   
+            epoch_list.append(i)
+            ##### for tfr_beta graph #####
+            tfr_list.append(self.tfr)
+            beta_list.append(beta)
+            
             self.eval()
+            ##### for tfr_beta graph
+            val_psnr_list.append(self.current_val_psnr)
             self.current_epoch += 1
             self.scheduler.step()
             self.teacher_forcing_ratio_update()
             self.kl_annealing.update()
-            
-            
+        self.plot_loss_curve(train_loss_list, mse_list, kl_list, epoch_list, self.args.kl_anneal_type)
+        self.plot_tfr(tfr_list, beta_list, epoch_list)
+        self.plot_val_psnr(epoch_list, val_psnr_list)
+
+    def plot_val_psnr(self, epoch_list, val_psnr_list):
+        plt.plot(epoch_list, val_psnr_list, label="val_psnr")
+        plt.xlabel("epochs")
+        plt.title(f"VAL PSNR")
+        plt.legend()
+        plt.savefig(f"graph/VAL_PSNR")
+        plt.close()
+    
+    def plot_tfr(self, tfr_list, beta_list, epoch_list):
+        plt.plot(epoch_list, beta_list, label="beta")
+        plt.plot(epoch_list, tfr_list, label="tfr_ratio")
+        plt.xlabel("epochs")
+        plt.title("TFR ratio and Beta")
+        plt.legend()
+        plt.savefig("graph/tfr")
+        plt.close()
+    
+    def plot_loss_curve(self, train_loss_list, mse_list, kl_list, epoch_list, kl_anneal_type):
+        plt.plot(epoch_list, train_loss_list, label="total_loss")
+        plt.plot(epoch_list, mse_list, label="mse_loss")
+        plt.plot(epoch_list, kl_list, label="kl_loss")
+        plt.xlabel("epochs")
+        plt.ylim(0, 1)
+        plt.title(f"Loss Curve of {kl_anneal_type}")
+        plt.legend()
+        plt.savefig(f"graph/loss_curve_{kl_anneal_type}")
+        plt.close()
+        
     @torch.no_grad()
     def eval(self):
         val_loader = self.val_dataloader()
@@ -186,7 +234,8 @@ class VAE_Model(nn.Module):
         ##### back porpagation #####
         loss.backward()
         self.optimizer_step()
-        return loss
+        self.optim.zero_grad()
+        return loss, mse_loss, kl_loss
         # raise NotImplementedError
     
     def val_one_step(self, img, label):
@@ -225,13 +274,13 @@ class VAE_Model(nn.Module):
             if (self.current_epoch == self.args.num_epoch) or self.args.test:
                 predicted_img_list.append(predicted_next_frame[0])
         ##### AVG PSNR #####
-        psnr_avg = psnr_sum / self.val_vi_len
-        print("\nAVG PSNR: ", psnr_avg)
+        self.current_val_psnr = psnr_sum / self.val_vi_len
+        print("\nAVG PSNR: ", self.current_val_psnr)
         if self.args.test:
-            self.plot_psnr(index_list, psnr_list, round(psnr_avg, 3))
+            self.plot_psnr(index_list, psnr_list, round(self.current_val_psnr, 3))
         ##### make gif #####
         if (self.current_epoch == self.args.num_epoch) or self.args.test:
-            self.make_gif(predicted_img_list, "checkpoints/val.gif")        
+            self.make_gif(predicted_img_list, os.path.join(self.args.save_root, f"epoch={self.current_epoch}_val.gif"))        
         
         return mse_loss
         
@@ -244,7 +293,7 @@ class VAE_Model(nn.Module):
         plt.title("Per frame Quality (PSNR)")
         plt.legend()
         plt.savefig("graph/per_frame_quality")
-        
+        plt.close()
                 
     def make_gif(self, images_list, img_name):
         new_list = []
@@ -288,7 +337,8 @@ class VAE_Model(nn.Module):
     def teacher_forcing_ratio_update(self):
         # TODO
         if self.current_epoch >= self.tfr_sde:
-            tmp_tfr = self.tfr * self.tfr_d_step
+            tmp_tfr = self.tfr
+            tmp_tfr -= 1 / (self.args.num_epoch - self.tfr_sde)
             self.tfr = max(tmp_tfr, 0)
         # print(self.tfr)
         # print(self.tfr_d_step)
@@ -344,6 +394,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=True)
+    # parser.add_argument('--config_file', type=str, help='config file path')
     parser.add_argument('--batch_size',    type=int,    default=2)
     parser.add_argument('--lr',            type=float,  default=0.001,     help="initial learning rate")
     parser.add_argument('--device',        type=str, choices=["cuda", "cpu"], default="cuda")
@@ -385,9 +436,13 @@ if __name__ == '__main__':
     parser.add_argument('--kl_anneal_cycle',    type=int, default=10,               help="")
     parser.add_argument('--kl_anneal_ratio',    type=float, default=1,              help="")
     
-
-    
-
     args = parser.parse_args()
+    # if args.config_file:
+    #     config = configparser.ConfigParser()
+    #     config.read(args.config_file)
+    #     defaults = {}
+    #     defaults.update(dict(config.items("Defaults")))
+    #     parser.set_defaults(**defaults)
+    #     args = parser.parse_args() # Overwrite arguments
     
     main(args)
