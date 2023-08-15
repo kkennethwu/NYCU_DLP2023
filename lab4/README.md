@@ -21,3 +21,4 @@ python Tester.py --DR LAB4_Dataset/ --save_root outputs/max_psnr/ --test --ckpt 
 ```
 ##### results
 ![Alt text](screenshots/highest_score.png)
+<img src="pred_seq.gif" width = "300" height = "200" alt="图片名称" align=center />
