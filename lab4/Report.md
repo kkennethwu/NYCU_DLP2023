@@ -158,7 +158,7 @@ With 21 epoch and tfr = 0:
     ![Alt text](graph/per_frame_quality_tfr0_NoKL.png)
 
 ### Derivate conditional VAE formula (extra points 5%)
-
+![Alt text](screenshots/derivate_cvae.jpg)
 
 ## Highest PSNR
 #### training

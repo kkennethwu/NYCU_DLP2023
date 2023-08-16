@@ -55,6 +55,8 @@ class kl_annealing():
             self.frange_cycle_linear(self.current_epoch, self.beta, stop=1.0, n_cycle=self.kl_anneal_cycle, ratio=self.kl_anneal_ratio)
         elif self.kl_anneal_type == "Monotonic":
             self.frange_monotonic_linear(self.current_epoch, self.beta, stop=1.0, n_cycle=self.kl_anneal_cycle, ratio=self.kl_anneal_ratio)
+        elif self.kl_anneal_type == "Cyclical_descent":
+            self.frange_cycle_linear_descent(self.current_epoch, self.beta, stop=0, n_cycle=self.kl_anneal_cycle, ratio=self.kl_anneal_ratio)
         # else 
         # raise NotImplementedError
     
@@ -62,6 +64,16 @@ class kl_annealing():
         # TODO
         return self.beta
         # raise NotImplementedError
+        
+    def frange_cycle_linear_descent(self, n_iter, start=1, stop=0, n_cycle=1, ratio=1):
+        tmp = start
+        tmp -= (1 / n_cycle) * ratio
+        if(tmp >= stop):
+            self.beta = tmp
+        else:
+            self.beta = 1
+        print("\nbeta after update: ", self.beta)
+        
 
     def frange_cycle_linear(self, n_iter, start=0.0, stop=1.0,  n_cycle=1, ratio=1):
         # TODO
