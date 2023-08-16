@@ -161,7 +161,7 @@ With 21 epoch and tfr = 0:
 
 
 ## Highest PSNR
-##### training
+#### training
 ```
 python Trainer.py --DR LAB4_Dataset/ --save_root checkpoints/max_psnr/ --num_epoch 100 --fast_train --fast_train_epoch 9 --kl_anneal_type NoKL_Annealing --tfr 0 
 ```
@@ -172,14 +172,14 @@ python Trainer.py --DR LAB4_Dataset/ --save_root checkpoints/max_psnr/ --num_epo
 
 ![Alt text](graph/VAL_PSNR_max_psnr.png)
 
-##### validation 
+#### validation 
 ```
 python Trainer.py --DR LAB4_Dataset/ --save_root checkpoints/max_psnr/ --test --ckpt checkpoints/max_psnr/epoch=99.ckpt
 ```
 
 ![Alt text](graph/per_frame_quality_max_psnr.png)
 
-##### testing
+#### testing
 ```
 python Tester.py --DR LAB4_Dataset/ --save_root outputs/max_psnr/ --test --ckpt checkpoints/max_psnr/epoch=99.ckpt
 ```
