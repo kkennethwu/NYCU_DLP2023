@@ -1,0 +1,5 @@
+torch 
+torchvision 
+torchaudio
+gym==0.15.7
+Box2D

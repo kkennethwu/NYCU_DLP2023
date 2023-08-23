@@ -12,4 +12,5 @@ lab4/__pycache
 lab4/*.gif
 lab4/outputs
 lab4/*.log
-
+lab5/ROMS
+lab5/HC\ ROMS/
