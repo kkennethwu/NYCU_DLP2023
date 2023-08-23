@@ -34,15 +34,15 @@
 
         ![Alt text](screenshots/critic.png)
 
-* (1%) Explain effects of the discount factor.
- 
+* (1%) Explain effects of the discount factor. 
+
     In Q-learning, the discount factor means that the agent focus on current reward whrn it's small, while the agent will focus on future reward when it's larger.
 
-* (1%) Explain benefits of epsilon-greedy in comparison to greedy action selection.
- 
+* (1%) Explain benefits of epsilon-greedy in comparison to greedy action selection. 
+
     It means that the agent will select action from random sanple action space, not just always choose the best action for current state because the best action for now may mot be the best action in the future. 
 
-* (1%) Explain the necessity of the target network.
+* (1%) Explain the necessity of the target network. 
 
     The target network because it provides a stable reference for estimating Q-values and to address the moving target problem inherent in training neural networks through reinforcement learning. By using the target network to estimate Q-values, the primary network can learn in a more stable manner, avoiding the challenges of the moving target problem during direct training.
 
