@@ -16,6 +16,7 @@
 ## Questions (bonus 10%)
 * (5%) Describe your major implementation of both DQN and DDPG in detail. Your description should at least contain three parts:
     1. Your implementation of Q network updating in DQN.
+        
         Implement Q-Network with 2 fully connected layer with RelU and 1 fully connected layer at the end. 
 
         ![Alt text](screenshots/Q-network.png)
