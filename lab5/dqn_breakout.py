@@ -21,10 +21,10 @@ class ReplayMemory(object):
         self.buffer = deque(maxlen=capacity)
 
 
-    def push(self, *transition):
+    def push(self, state, action, reward, next_state, done):
         """Saves a transition"""
         # transition = [state, action, [reward / 100], done]
-        self.buffer.append(tuple(map(tuple, transition)))
+        self.buffer.append([state, action, reward, next_state, done])
 
     def sample(self, batch_size, device):
         """Sample a batch of transitions"""
@@ -130,7 +130,8 @@ class DQN:
         with torch.no_grad():
            q_next = torch.max(self._target_net(next_state.permute(0, 3, 1, 2)), 1)[0].view(-1, 1)
            q_target = reward + q_next * gamma * (1.0 - done)
-        criterion = nn.SmoothL1Loss()
+        # criterion = nn.SmoothL1Loss()
+        criterion = nn.MSELoss()
         loss = criterion(q_value, q_target)
         # raise NotImplementedError
         # optimize
@@ -168,7 +169,7 @@ def train(args, agent, writer):
     env_raw = make_atari('BreakoutNoFrameskip-v4')
     env = wrap_deepmind(env_raw, episode_life=True, clip_rewards=True, frame_stack=True) # enable frame stack
     action_space = env.action_space
-    total_steps, epsilon = 0, 1.
+    total_steps, epsilon = 0, 0.5
     ewma_reward = 0
 
     for episode in range(args.episode):
@@ -253,7 +254,7 @@ def main():
     parser.add_argument('--capacity', default=100000, type=int)
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--lr', default=0.0000625, type=float)
-    parser.add_argument('--eps_decay', default=1000000, type=float)
+    parser.add_argument('--eps_decay', default=100000, type=float)
     parser.add_argument('--eps_min', default=0.1, type=float)
     parser.add_argument('--gamma', default=.99, type=float)
     parser.add_argument('--freq', default=4, type=int)

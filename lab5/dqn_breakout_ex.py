@@ -193,7 +193,7 @@ def train(args, agent, writer):
     action_space = env.action_space
     total_steps, epsilon = 0, 0.1
     ewma_reward = 0
-    max_reward  = 60
+    max_reward  = 30
 
     for episode in range(25000, args.episode):
         total_reward = 0
@@ -224,15 +224,16 @@ def train(args, agent, writer):
                 agent.update(total_steps)
 
             total_reward += reward
-
+            total_steps += 1
+            
             if (total_steps+1) % args.eval_freq == 0:
                 """You can write another evaluate function, or just call the test function."""
                 tmp = test(args, agent, writer)
                 if tmp > max_reward:
                     max_reward = tmp
-                    agent.save(args.model + "dqn-break-ex" + ".pt", True)
+                agent.save(args.model + "dqn-break-ex" + str(total_steps) + ".pt", True)
 
-            total_steps += 1
+            
             if done:
                 ewma_reward = 0.05 * total_reward + (1 - 0.05) * ewma_reward
                 writer.add_scalar('Train/Episode Reward', total_reward, episode)
