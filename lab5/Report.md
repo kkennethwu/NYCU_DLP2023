@@ -12,7 +12,16 @@
 ![Alt text](screenshots/ddpg-lunar-tensorboard.png)
 
 ### LunarLander-v2 using DQN
+somehow lose some tf event in tensorboard
 
+![Alt text](screenshots/dqn-breakout-weird.png)
+
+but I have another tensoboard graph of the model trained with less epochs
+
+![Alt text](screenshots/dqn-breakout-less-epoch.png)
+
+
+![Alt text](screenshots/dqn-breakout.png)
 
 ## Questions (bonus 10%)
 * (5%) Describe your major implementation of both DQN and DDPG in detail. Your description should at least contain three parts:
