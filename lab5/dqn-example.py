@@ -88,6 +88,7 @@ class DQN:
         else:
             with torch.no_grad():
                 state = torch.tensor(state, device=self.device).view(1, -1)
+                # breakpoint()
                 output = self._behavior_net(state)
                 # print(output)
                 _, best_action = torch.max(output, 1)

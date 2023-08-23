@@ -14,3 +14,6 @@ lab4/outputs
 lab4/*.log
 lab5/ROMS
 lab5/HC\ ROMS/
+lab5/*.pt
+lab5/log
+lab5/ckpt
