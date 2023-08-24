@@ -11,7 +11,7 @@
 
 ![Alt text](screenshots/ddpg-lunar-tensorboard.png)
 
-### LunarLander-v2 using DQN
+### Breakout using DQN
 somehow lose some tf event in tensorboard
 
 ![Alt text](screenshots/dqn-breakout-weird.png)
