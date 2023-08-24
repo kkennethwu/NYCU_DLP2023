@@ -21,10 +21,10 @@ class ReplayMemory(object):
         self.buffer = deque(maxlen=capacity)
 
 
-    def push(self, state, action, reward, next_state, done):
+    def push(self, *transition):
         """Saves a transition"""
         # transition = [state, action, [reward / 100], done]
-        self.buffer.append([state, action, reward, next_state, done])
+        self.buffer.append(tuple(map(tuple, transition)))
 
     def sample(self, batch_size, device):
         """Sample a batch of transitions"""
@@ -130,8 +130,7 @@ class DQN:
         with torch.no_grad():
            q_next = torch.max(self._target_net(next_state.permute(0, 3, 1, 2)), 1)[0].view(-1, 1)
            q_target = reward + q_next * gamma * (1.0 - done)
-        # criterion = nn.SmoothL1Loss()
-        criterion = nn.MSELoss()
+        criterion = nn.SmoothL1Loss()
         loss = criterion(q_value, q_target)
         # raise NotImplementedError
         # optimize
@@ -169,7 +168,7 @@ def train(args, agent, writer):
     env_raw = make_atari('BreakoutNoFrameskip-v4')
     env = wrap_deepmind(env_raw, episode_life=True, clip_rewards=True, frame_stack=True) # enable frame stack
     action_space = env.action_space
-    total_steps, epsilon = 0, 0.5
+    total_steps, epsilon = 0, 1.
     ewma_reward = 0
 
     for episode in range(args.episode):
@@ -183,7 +182,7 @@ def train(args, agent, writer):
                 # select action
                 action = agent.select_action(np.array(state), epsilon, action_space)
                 # decay epsilon
-                epsilon -= (1 - args.eps_min) / args.eps_decay
+                epsilon -= (0.5 - args.eps_min) / args.eps_decay
                 epsilon = max(epsilon, args.eps_min)
             # execute action
             next_state, reward, done, _ = env.step(action)
@@ -247,19 +246,20 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-d', '--device', default='cuda')
     parser.add_argument('-m', '--model', default='ckpt/')
-    parser.add_argument('--logdir', default='log/dqn')
+    parser.add_argument('--logdir', default='log/dqn_breakout_final')
     # train
     parser.add_argument('--warmup', default=20000, type=int)
-    parser.add_argument('--episode', default=20000, type=int)
+    parser.add_argument('--episode', default=200001, type=int)
     parser.add_argument('--capacity', default=100000, type=int)
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--lr', default=0.0000625, type=float)
-    parser.add_argument('--eps_decay', default=100000, type=float)
+    parser.add_argument('--eps_decay', default=50000, type=float)
     parser.add_argument('--eps_min', default=0.1, type=float)
     parser.add_argument('--gamma', default=.99, type=float)
     parser.add_argument('--freq', default=4, type=int)
     parser.add_argument('--target_freq', default=10000, type=int)
     parser.add_argument('--eval_freq', default=200000, type=int)
+    parser.add_argument('--ckpt_path',     type=str,    default=None,help="The path of your checkpoints")   
     # test
     parser.add_argument('--test_only', action='store_true')
     parser.add_argument('-tmp', '--test_model_path', default='ckpt/dqn_1000000.pt')
@@ -276,11 +276,13 @@ def main():
         agent.load(args.test_model_path)
         test(args, agent, writer)
     else:
+        # if args.ckpt_path != None:
+        #     agent.load(args.ckpt_path)
         train(args, agent, writer)
         
 
 
 if __name__ == '__main__':
-    start = time.time()
+    # start = time.time()
     main()
-    print(f"Executed in {timedelta(seconds=time.time() - start)}")
+    # print(f"Executed in {timedelta(seconds=time.time() - start)}")
