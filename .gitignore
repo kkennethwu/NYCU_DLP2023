@@ -17,3 +17,7 @@ lab5/HC\ ROMS/
 lab5/*.pt
 lab5/log
 lab5/ckpt
+lab6/*.pth
+lab6/*.zip
+lab6/iclevr
+
