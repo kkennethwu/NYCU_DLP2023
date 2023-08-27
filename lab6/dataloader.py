@@ -3,7 +3,7 @@ from PIL import Image
 import torch
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
-
+import numpy as np
 
 
 class iclevrDataset(Dataset):
@@ -38,19 +38,19 @@ class iclevrDataset(Dataset):
     
     def __getitem__(self, index):
         if self.mode == 'train':
-            transform = transforms.Compose([
+            transform_img = transforms.Compose([
                 transforms.ToTensor()
             ])
             img_path = os.path.join(self.root, self.img_paths[index])
             img = Image.open(img_path)
-            img = transform(img)
-            label_one_hot = self.labels_one_hot[index]
+            img = transform_img(img)
+            
+            label_one_hot = torch.tensor(np.array(self.labels_one_hot[index]))
             return img, label_one_hot
         elif self.mode == 'test':
             label_one_hot = self.labels_one_hot[index]
             print(label_one_hot)
             return label_one_hot
-        
 
 
 
