@@ -64,6 +64,7 @@ class ConditionlDDPM():
             optimizer=self.optimizer,
             num_warmup_steps=args.lr_warmup_steps,
             num_training_steps=len(self.train_dataloader) * self.epochs,
+            num_cycles=50
         )
         
     def train(self):
@@ -98,8 +99,9 @@ class ConditionlDDPM():
                 self.writer.add_scalar("test_accuracy", eval_acc, epoch)
                 eval_acc = self.evaluate(epoch, test_what="new_test")
                 self.writer.add_scalar("new_test_accuracy", eval_acc, epoch)
-                # self.save(os.path.join(self.args.save_root, f"epoch={epoch}.ckpt"))
-
+            if (epoch == 1 or epoch % 10 == 0):
+                self.save(os.path.join(self.args.ckpt_root, f"epoch={epoch}.ckpt"), epoch)
+                print("save ckpt")
     def evaluate(self, epoch="final", test_what="test"):
         test_dataset = iclevrDataset(mode=f"{test_what}")
         test_dataloader = DataLoader(test_dataset, batch_size=32)
@@ -113,40 +115,63 @@ class ConditionlDDPM():
             # compute accuracy using pre-trained model
             # trans = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
             # trans_x = trans(x.detach())
-            denormalized_x = (x / 2 + 0.5).clamp(0, 1)
             acc = self.eval_model.eval(images=x.detach(), labels=y)
+            denormalized_x = (x.detach() / 2 + 0.5).clamp(0, 1)
             print(f"accuracy of {test_what}.json on epoch {epoch}: ", round(acc, 3))
             generated_grid_imgs = make_grid(denormalized_x)
             save_image(generated_grid_imgs, f"{self.svae_root}/{test_what}_{epoch}.jpg")
         return round(acc, 3)
     
-    # def load_checkpoint(self):
-    #     if self.ckpt_path != None:
-    #         checkpoint = torch.load(self.args.ckpt_path)
-    #         self.load_state_dict(checkpoint['state_dict'], strict=True) 
-    #         self.lr = checkpoint['lr']
-            
-    #         self.optimizer      = torch.optim.Adam(self.noise_predicter.parameters(), lr=self.args.lr)
-    #         # self.scheduler  = optim.lr_scheduler.MultiStepLR(self.optim, milestones=[2, 4], gamma=0.1)
-    #         # self.kl_annealing = kl_annealing(self.args, current_epoch=checkpoint['last_epoch'])
-    #         self.epoch = checkpoint['last_epoch']
+    def load_checkpoint(self):
+        if self.args.ckpt_path != None:
+            checkpoint = torch.load(self.args.ckpt_path)
+            self.noise_predicter = checkpoint["noise_predicter"]
+            self.noise_scheduler = checkpoint["noise_scheduler"]
+            self.optimizer = checkpoint["optimizer"]
+            self.lr = checkpoint["lr"]
+            self.lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+            # self.scheduler  = optim.lr_scheduler.MultiStepLR(self.optim, milestones=[2, 4], gamma=0.1)
+            # self.kl_annealing = kl_annealing(self.args, current_epoch=checkpoint['last_epoch'])
+            self.epoch = checkpoint['last_epoch']
     
-    # def save(self, path):
-    #     torch.save({
-    #         "state_dict": self.state_dict(),
-    #         "optimizer": self.state_dict(),  
-    #         "lr"        : self.scheduler.get_last_lr()[0],
-    #         "tfr"       :   self.tfr,
-    #         "last_epoch": self.current_epoch
-    #     }, path)
-    #     print(f"save ckpt to {path}")
-   
-   
+    def save(self, path, epoch):
+        torch.save({
+            "noise_predicter": self.noise_predicter,
+            "noise_scheduler": self.noise_scheduler,
+            "optimizer": self.optimizer,
+            "lr"        : self.lr,
+            "lr_scheduler": self.lr_scheduler.state_dict(),
+            "last_epoch": epoch
+        }, path)
+        print(f"save ckpt to {path}")
+    def progressive_generate_image(self):
+        label_one_hot = [0] * 24
+        label_one_hot[2] = 1
+        label_one_hot[10] = 1
+        label_one_hot[15] = 1
+        label_one_hot = torch.tensor(label_one_hot).to( self.device)
+        label_one_hot = torch.unsqueeze(label_one_hot, 0)
+        # breakpoint()
+        x = torch.randn(1, 3, 64, 64).to(self.device)
+        img_list = []
+        for i, t in tqdm(enumerate(self.noise_scheduler.timesteps)):
+            with torch.no_grad():
+                pred_noise = self.noise_predicter(x, t, label_one_hot)
+            x = self.noise_scheduler.step(pred_noise, t, x).prev_sample
+            if(t % 100 == 0):
+                save_image(x, f"{self.args.save_root}/{t}.jpg")
+                img_list.append(x)
+        grid_img = make_grid(torch.cat(img_list, dim=0))
+        save_image(grid_img, f"{self.args.save_root}/progressive_genrate_image.jpg")
             
 def main(args):
     writer = SummaryWriter()
     conditionlDDPM = ConditionlDDPM(args, writer)
-    conditionlDDPM.train()
+    if args.test_only:
+        conditionlDDPM.load_checkpoint()
+        conditionlDDPM.progressive_generate_image()
+    else:
+        conditionlDDPM.train()
     # conditionlDDPM.evaluate(epoch=150, test_what="new_test")
     writer.close()
     
@@ -159,11 +184,12 @@ if __name__ == "__main__":
     parser.add_argument('--test_only', action='store_true')
     parser.add_argument('--epochs', type=int, default=150)
     parser.add_argument('--num_train_timestamps', type=int, default=1000)
-    parser.add_argument('--lr_warmup_steps', default=500, type=int)
+    parser.add_argument('--lr_warmup_steps', default=0, type=int)
     parser.add_argument('--save_root', type=str, default="eval")
     parser.add_argument('--label_embeding_size', type=int, default=4)
     # ckpt
-    # parser.add_argument('--ckpt_path', type=str, default=None)
+    parser.add_argument('--ckpt_root', type=str, default="ckpt") # fro save
+    parser.add_argument('--ckpt_path', type=str, default=None) # for load
     # parser.add_argument('--save_root', type=str, default="ckpt")
     # tensorboard args
     # parser.add_argument('--log_dir', type=str, default="logs")
