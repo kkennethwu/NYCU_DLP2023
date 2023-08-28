@@ -43,9 +43,9 @@ class iclevrDataset(Dataset):
     def __getitem__(self, index):
         if self.mode == 'train':
             transform_img = transforms.Compose([
-                transforms.
+                transforms.Resize((64, 64)),
                 transforms.ToTensor(),
-                transforms.Resize((128, 128))
+                 transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
             ])
             img_path = os.path.join(self.root, self.img_paths[index])
             img = Image.open(img_path).convert("RGB")

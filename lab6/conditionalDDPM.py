@@ -14,6 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 from evaluator import evaluation_model
 import torchvision.transforms as transforms
 import os
+from diffusers.optimization import get_cosine_schedule_with_warmup
 
 
 # scheduler = DDPMScheduler.from_pretrained("google/ddpm-cat-256")
@@ -47,26 +48,31 @@ class ConditionlDDPM():
         self.lr = args.lr
         self.batch_size = args.batch_size
         self.num_train_timestamps = args.num_train_timestamps
-        
+        self.svae_root = args.save_root
+        self.label_embeding_size = args.label_embeding_size
         
         self.noise_scheduler = DDPMScheduler(num_train_timesteps=self.num_train_timestamps, beta_schedule="squaredcos_cap_v2")
-        self.noise_predicter = Unet(labels_num=24, embedding_label_size=4).to(self.device)
+        self.noise_predicter = Unet(labels_num=24, embedding_label_size=self.label_embeding_size).to(self.device)
         self.eval_model = evaluation_model()
         
+        self.train_dataset = iclevrDataset(root="iclevr", mode="train")
+        self.train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
+        
+        # self.optimizer = torch.optim.Adam(self.noise_predicter.parameters(), lr=self.lr)
         self.optimizer = torch.optim.Adam(self.noise_predicter.parameters(), lr=self.lr)
+        self.lr_scheduler = get_cosine_schedule_with_warmup(
+            optimizer=self.optimizer,
+            num_warmup_steps=args.lr_warmup_steps,
+            num_training_steps=len(self.train_dataloader) * self.epochs,
+        )
         
     def train(self):
-        
-        train_dataset = iclevrDataset(root="iclevr", mode="train")
-        train_dataloader = DataLoader(train_dataset, batch_size=self.batch_size)
-        
         loss_criterion = nn.MSELoss()
-        
-        
         # training 
-        for epoch in range(1, self.epochs):
+        for epoch in range(1, self.epochs+1):
             loss_sum = 0
-            for x, y in tqdm(train_dataloader):
+            print(f"#################### epoch: {epoch}, lr {self.lr} ####################")
+            for x, y in tqdm(self.train_dataloader):
                 x = x.to(self.device)
                 y = y.to(self.device)
                 noise = torch.randn_like(x)
@@ -75,18 +81,23 @@ class ConditionlDDPM():
                 perd_noise = self.noise_predicter(noise_x, timestamp, y)
                 
                 
-                loss = loss_criterion(noise, perd_noise)
-                self.optimizer.zero_grad()
+                loss = loss_criterion(perd_noise, noise)
                 loss.backward()
+                nn.utils.clip_grad_value_(self.noise_predicter.parameters(), 1.0)
                 self.optimizer.step()
-                loss_sum += loss
-            avg_loss = loss_sum / epoch
-            print("avg_loss: ", avg_loss.item())
+                self.lr_scheduler.step()
+                self.optimizer.zero_grad()
+                self.lr = self.lr_scheduler.get_last_lr()[0]
+                loss_sum += loss.item()
+            avg_loss = loss_sum / len(self.train_dataloader)
+            print("avg_loss: ", avg_loss)
             self.writer.add_scalar("avg_loss", avg_loss, epoch)
             # validation
-            if(epoch % 10 == 0):
+            if(epoch % 5 == 0 or epoch == 1):
                 eval_acc = self.evaluate(epoch, test_what="test")
-                self.writer.add_scalar("eval_accuracy", eval_acc, epoch)
+                self.writer.add_scalar("test_accuracy", eval_acc, epoch)
+                eval_acc = self.evaluate(epoch, test_what="new_test")
+                self.writer.add_scalar("new_test_accuracy", eval_acc, epoch)
                 # self.save(os.path.join(self.args.save_root, f"epoch={epoch}.ckpt"))
 
     def evaluate(self, epoch="final", test_what="test"):
@@ -100,11 +111,13 @@ class ConditionlDDPM():
                     pred_noise = self.noise_predicter(x, t, y)
                 x = self.noise_scheduler.step(pred_noise, t, x).prev_sample
             # compute accuracy using pre-trained model
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            # trans = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            # trans_x = trans(x.detach())
+            denormalized_x = (x / 2 + 0.5).clamp(0, 1)
             acc = self.eval_model.eval(images=x.detach(), labels=y)
             print(f"accuracy of {test_what}.json on epoch {epoch}: ", round(acc, 3))
-            generated_grid_imgs = make_grid(x.detach())
-            save_image(generated_grid_imgs, f"eval/test_{epoch}.jpg")
+            generated_grid_imgs = make_grid(denormalized_x)
+            save_image(generated_grid_imgs, f"{self.svae_root}/{test_what}_{epoch}.jpg")
         return round(acc, 3)
     
     # def load_checkpoint(self):
@@ -134,18 +147,21 @@ def main(args):
     writer = SummaryWriter()
     conditionlDDPM = ConditionlDDPM(args, writer)
     conditionlDDPM.train()
-    conditionlDDPM.evaluate(epoch=150, test_what="new_test")
+    # conditionlDDPM.evaluate(epoch=150, test_what="new_test")
     writer.close()
     
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(add_help=True)
     parser.add_argument('--batch_size', type=int, default=32)
-    parser.add_argument('--lr', type=float, default=0.001, help="initial learning rate")
-    parser.add_argument('--device', type=str, choices=["cuda:0", "cuda:1", "cpu"], default="cuda:0")
+    parser.add_argument('--lr', type=float, default=1e-4, help="initial learning rate")
+    parser.add_argument('--device', type=str, choices=["cuda:0", "cuda:1", "cpu", "cuda"], default="cuda")
     parser.add_argument('--test_only', action='store_true')
     parser.add_argument('--epochs', type=int, default=150)
     parser.add_argument('--num_train_timestamps', type=int, default=1000)
+    parser.add_argument('--lr_warmup_steps', default=500, type=int)
+    parser.add_argument('--save_root', type=str, default="eval")
+    parser.add_argument('--label_embeding_size', type=int, default=4)
     # ckpt
     # parser.add_argument('--ckpt_path', type=str, default=None)
     # parser.add_argument('--save_root', type=str, default="ckpt")
