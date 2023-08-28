@@ -147,8 +147,8 @@ class ConditionlDDPM():
     def progressive_generate_image(self):
         label_one_hot = [0] * 24
         label_one_hot[2] = 1
-        label_one_hot[10] = 1
-        label_one_hot[15] = 1
+        label_one_hot[19] = 1
+        label_one_hot[3] = 1
         label_one_hot = torch.tensor(label_one_hot).to( self.device)
         label_one_hot = torch.unsqueeze(label_one_hot, 0)
         # breakpoint()
@@ -159,8 +159,9 @@ class ConditionlDDPM():
                 pred_noise = self.noise_predicter(x, t, label_one_hot)
             x = self.noise_scheduler.step(pred_noise, t, x).prev_sample
             if(t % 100 == 0):
-                save_image(x, f"{self.args.save_root}/{t}.jpg")
-                img_list.append(x)
+                denormalized_x = (x.detach() / 2 + 0.5).clamp(0, 1)
+                save_image(denormalized_x, f"{self.args.save_root}/{t}.jpg")
+                img_list.append(denormalized_x)
         grid_img = make_grid(torch.cat(img_list, dim=0), nrow=5)
         save_image(grid_img, f"{self.args.save_root}/progressive_genrate_image.jpg")
             

@@ -130,6 +130,7 @@ In this lab, we need to implement a conditional DDPM to generate synthetic image
 
 * a progressive generation image
 
+    ![Alt text](scrennshots/progressive_genrate_image.jpg)
 
 #### – Discuss the results of different model architectures or methods. (10%) For example, what is the effect with or without some specific embedding methods, or what kind of prediction type is more effective in this case.
 
