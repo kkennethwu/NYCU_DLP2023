@@ -161,7 +161,7 @@ class ConditionlDDPM():
             if(t % 100 == 0):
                 save_image(x, f"{self.args.save_root}/{t}.jpg")
                 img_list.append(x)
-        grid_img = make_grid(torch.cat(img_list, dim=0))
+        grid_img = make_grid(torch.cat(img_list, dim=0), nrow=5)
         save_image(grid_img, f"{self.args.save_root}/progressive_genrate_image.jpg")
             
 def main(args):
